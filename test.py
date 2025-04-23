@@ -5,11 +5,12 @@ import webbrowser
 import pyperclip
 import csv
 import openpyxl
+from whatsapp import whatsapp
 
 pyautogui.FAILSAFE = True
 
 COORDENADAS = {
-    "usuario":  (776, 286),
+    "usuario":  (811, 287),
     "contraseña": (750,322),
     "botón_de_inicio_sesión": (796,355),
     "Primer_filtro": (531,170),
@@ -49,13 +50,13 @@ COORDENADAS = {
     "Elimiar_Fila_9":(1389,693),
     "Elimiar_Fila_10":(1388,719),
     "Confirmar_eliminacion":(912,508),
-    "Close_window":(1571,19)
-
+    "Close_window":(1571,19),
+    "NextPage": (845,743),
 }
 
 # CREDENCIALES
-usuario = "vcgl"
-contrasena = "Dutty25."
+usuario = "pmce"
+contrasena = "abril17." 
 
 # FUNCIONES PARA MOVIMIENTO DE RPA
 
@@ -128,6 +129,7 @@ def copiar_y_guardar_en_excel(reiniciar_contador=False):
 def escribir_log(mensaje):
     """Escribe un mensaje en el archivo de log."""
     ruta_log = "C:\\Users\\Administrador\\Desktop\\RPA-Pagalo\\log.txt"
+
     with open(ruta_log, "a") as log_file:
         log_file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {mensaje}\n")
 
@@ -135,7 +137,12 @@ def escribir_log(mensaje):
 
 def abrir_pagina():
     """Abre el enlace en el navegador predeterminado."""
-    webbrowser.open("http://10.7.10.164:9080/MonitorMultipagos/usuarios/sessionTerminada.action")
+    webbrowser.open("http://10.7.10.169:9080/MonitorMultipagos/usuarios/sessionTerminada.action")
+    time.sleep(5)
+    pyautogui.click(x=360, y=883)  # Hacer clic en la página para asegurarse de que esté activa
+    time.sleep(2)
+    pyautogui.click(x=410, y=884)  # Hacer clic en la página para asegurarse de que esté activa
+    time.sleep(2)
     pyautogui.hotkey('win','up')
     time.sleep(3)
     mover_mouse_y_clic(*COORDENADAS["usuario"])
@@ -313,31 +320,66 @@ def fila_10():
         escribir_log(f"NrTicket {numero} recargado.")
     time.sleep(10)
 
+def cambiar_red(red):
+    """Cambia la red de internet a la especificada."""
+    print(f"Cambiando a la red: {red}")
+    os.system(f'netsh wlan connect name="{red}"')
+    time.sleep(10)  # Esperar a que la conexión se establezca
+
+def crear_excel_tickets():
+    """Crea el archivo Tickets.xlsx si no existe."""
+    ruta_excel = "C:\\Users\\Administrador\\Desktop\\RPA-Pagalo\\Tickets.xlsx"
+    if not os.path.exists(ruta_excel):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Hoja1"
+        ws.append(["Nr_Ticket", "Contador"])
+        wb.save(ruta_excel)
+        print(f"Archivo creado: {ruta_excel}")
+
+def eliminar_excel_tickets():
+    """Elimina el archivo Tickets.xlsx si existe."""
+    ruta_excel = "C:\\Users\\Administrador\\Desktop\\RPA-Pagalo\\Tickets.xlsx"
+    if os.path.exists(ruta_excel):
+        os.remove(ruta_excel)
+        print(f"Archivo eliminado: {ruta_excel}")
+
 def main():
-    abrir_pagina()
-    Operaciones_NoProcesadas()
-    while True:
-        fila_1()
-        fila_2()
-        fila_3()
-        fila_4()
-        fila_5()
-        fila_6()
-        fila_7()
-        fila_8()
-        fila_9()
-        fila_10()
-        time.sleep(5)
-        mover_mouse_y_clic(*COORDENADAS["Boton_Consultar_datos"])
-        time.sleep(5)
-        
-        # Verificar si es 00:10 am
-        if time.strftime('%H:%M') == '11:20':
-            mover_mouse_y_clic(*COORDENADAS["Close_window"])
-            time.sleep(5)
-            main()  # Reiniciar el proceso
+    while True:  # Bucle infinito para reiniciar el proceso en caso de error
+        try:
+            crear_excel_tickets()  # Crear el archivo al inicio
+            cambiar_red("SBDIR")  # Cambiar a la red SBDIR para usar WhatsApp
+            whatsapp()
+            cambiar_red("BNCORP")  # Cambiar a la red BNCORP para el resto del proceso
+            abrir_pagina()
+            Operaciones_NoProcesadas()
+            start_time = time.time()  # Registrar el tiempo de inicio
+            while True:
+                fila_1()
+                fila_2()
+                fila_3()
+                fila_4()
+                fila_5()
+                fila_6()
+                fila_7()
+                fila_8()
+                fila_9()
+                fila_10()
+                time.sleep(5)
+                mover_mouse_y_clic(*COORDENADAS["NextPage"])
+                time.sleep(15)
+
+                # Verificar si han pasado 3 horas
+                if time.time() - start_time >= 3 * 60 * 60:  # 3 horas en segundos
+                    mover_mouse_y_clic(*COORDENADAS["Close_window"])
+                    time.sleep(5)
+                    eliminar_excel_tickets()  # Eliminar el archivo al final del proceso
+                    time.sleep(5)
+                    break  # Salir del bucle interno para reiniciar el proceso
+        except Exception as e:
+            print(f"Error detectado: {e}. Reiniciando el proceso...")
+            time.sleep(10)  # Esperar antes de reiniciar
+            continue  # Reiniciar el proceso desde el principio
 
 if __name__ == "__main__":
-    while True:
-        main()
-        time.sleep(60)  # Esperar un minuto antes de verificar nuevamente
+    main()
